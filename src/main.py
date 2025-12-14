@@ -6,6 +6,8 @@ import uuid
 
 import json
 
+import base64
+
 # Add the project root to the python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -83,6 +85,53 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     
     await message.answer(welcome_text, reply_markup=main_menu, parse_mode="HTML")
 
+@dp.message(Command("dashboard"))
+async def open_dashboard(message: Message):
+    """
+    Generates a link to the Web App with the user's current data encoded.
+    """
+    user_id = message.from_user.id
+    
+    # Fetch Data
+    summary = get_daily_summary(user_id)
+    logs = get_daily_logs(user_id)
+    
+    # Prepare JSON payload
+    payload = {
+        "total_cals": summary['total_calories'] or 0,
+        "macros": {
+            "protein": summary['total_protein'] or 0,
+            "carbs": summary['total_carbs'] or 0,
+            "fats": summary['total_fats'] or 0
+        },
+        "logs": []
+    }
+    
+    if logs:
+        for log in logs:
+            payload["logs"].append({
+                "name": log['food_name'],
+                "cals": log['calories'],
+                "prot": log['protein'],
+                "carbs": log['carbs'],
+                "fats": log['fats'],
+                "score": log['health_score']
+            })
+            
+    # Encode to Base64
+    json_str = json.dumps(payload)
+    encoded_data = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
+    
+    # Construct URL
+    base_url = "https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/"
+    full_url = f"{base_url}?data={encoded_data}"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Open Interactive Dashboard", web_app=WebAppInfo(url=full_url))]
+    ])
+    
+    await message.answer("📊 <b>Your Personal Dashboard is ready!</b>\nClick below to view charts and details.", reply_markup=keyboard, parse_mode="HTML")
+
 @dp.message(F.text == "❌ Cancel / Reset")
 async def menu_cancel(message: Message, state: FSMContext):
     await state.clear()
@@ -155,10 +204,17 @@ async def menu_daily_journal(message: Message):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Show Daily Details", callback_data="toggle_daily_details:show")],
-        [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")]
+        [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")],
+        [InlineKeyboardButton(text="🚀 Open App Dashboard", callback_data="open_dashboard_btn")]
     ])
     
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+@dp.callback_query(F.data == "open_dashboard_btn")
+async def open_dashboard_callback(callback: CallbackQuery):
+    # Reuse the logic from the command
+    await open_dashboard(callback.message)
+    await callback.answer()
 
 @dp.callback_query(F.data == "manage_logs")
 async def manage_logs_handler(callback: CallbackQuery):
@@ -611,7 +667,7 @@ async def log_food_handler(message: Message, state: FSMContext) -> None:
 @dp.message(F.content_type == types.ContentType.WEB_APP_DATA)
 async def web_app_data_handler(message: Message, state: FSMContext):
     """
-    Handles data sent from the Web App (e.g. Barcode scan result)
+    Handles data sent from the Web App (Barcode or Text Log)
     """
     try:
         data = json.loads(message.web_app_data.data)
@@ -637,7 +693,71 @@ async def web_app_data_handler(message: Message, state: FSMContext):
                 )
             else:
                 await message.answer("😕 Barcode found, but product not in database.")
+        
+        elif data.get('type') == 'text':
+            text_log = data.get('data')
+            await message.answer(f"📝 <b>Received Log:</b> {text_log}\nProcessing...", parse_mode="HTML")
+            
+            # Reuse the text logging logic
+            # We need to call process_user_message manually
+            # This is a bit tricky because log_food_handler expects a message object
+            # We can just call the logic directly here
+            
+            log_data, reply = await process_user_message(text_log)
+            await message.answer(reply)
+            
+            if log_data:
+                conn = get_db_connection()
+                cursor = conn.cursor()
                 
+                total_cals = 0
+                total_prot = 0
+                total_carbs = 0
+                total_fats = 0
+                item_names = []
+                group_id = str(uuid.uuid4())
+                
+                for item in log_data:
+                    name = item.get('item')
+                    cals = item.get('calories', 0)
+                    prot = item.get('protein', 0)
+                    carbs = item.get('carbs', 0)
+                    fats = item.get('fats', 0)
+                    micros = item.get('micronutrients', 'N/A')
+                    score = item.get('health_score', 5)
+                    
+                    total_cals += cals
+                    total_prot += prot
+                    total_carbs += carbs
+                    total_fats += fats
+                    item_names.append(name)
+                    
+                    cursor.execute('''
+                        INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id))
+                    
+                conn.commit()
+                conn.close()
+                
+                macro_chart = generate_text_progress_bar(total_prot, total_carbs, total_fats)
+                
+                synthese_text = (
+                    f"✅ <b>Logged:</b> {', '.join(item_names)}\n\n"
+                    f"<b>📊 Total Nutrition:</b>\n"
+                    f"🔥 <b>{total_cals} Calories</b>\n"
+                    f"💪 Protein: {total_prot:.1f}g\n"
+                    f"🍞 Carbs: {total_carbs:.1f}g\n"
+                    f"🥑 Fats: {total_fats:.1f}g\n"
+                    f"{macro_chart}"
+                )
+                
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="📜 Show Item Details", callback_data=f"toggle_details:show:{group_id}")]
+                ])
+                
+                await message.answer(synthese_text, reply_markup=keyboard, parse_mode="HTML")
+
     except Exception as e:
         logging.error(f"Error handling Web App data: {e}")
         await message.answer("Error processing data from Web App.")

@@ -3,288 +3,390 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nutrition Scanner</title>
+    <title>Nutrition Dashboard</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --tg-theme-bg-color: #ffffff;
-            --tg-theme-text-color: #000000;
-            --tg-theme-button-color: #3390ec;
-            --tg-theme-button-text-color: #ffffff;
-            --tg-theme-secondary-bg-color: #f4f4f5;
+            --bg-color: #f4f4f5;
             --card-bg: #ffffff;
-            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+            --text-primary: #000000;
+            --text-secondary: #8e8e93;
+            --accent: #007aff;
+            --danger: #ff3b30;
+            --success: #34c759;
+            --warning: #ffcc00;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--tg-theme-secondary-bg-color);
-            color: var(--tg-theme-text-color);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
             margin: 0;
             padding: 0;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 100vh;
             overflow: hidden;
         }
 
-        .container {
+        /* --- TABS --- */
+        .tab-content {
             flex: 1;
+            overflow-y: auto;
+            display: none;
+            padding: 20px;
+            padding-bottom: 100px; /* Space for bottom nav */
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--card-bg);
+            border-top: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            z-index: 1000;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+        }
+
+        .nav-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 24px;
-            z-index: 1;
+            font-size: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            width: 25%;
         }
 
-        .card {
-            background: var(--tg-theme-bg-color);
-            border-radius: 24px;
-            padding: 32px 24px;
-            width: 100%;
-            max-width: 360px;
-            box-shadow: var(--shadow);
-            text-align: center;
-            margin-bottom: 20px;
-            transition: transform 0.2s ease;
+        .nav-item.active {
+            color: var(--accent);
         }
 
-        h1 {
+        .nav-icon {
             font-size: 24px;
-            font-weight: 700;
-            margin: 0 0 8px 0;
+            margin-bottom: 4px;
         }
 
-        p {
-            font-size: 15px;
-            opacity: 0.7;
-            margin: 0 0 24px 0;
-            line-height: 1.5;
+        /* --- CARDS & WIDGETS --- */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        h2 { margin: 0 0 15px 0; font-size: 18px; font-weight: 700; }
+        h3 { margin: 0 0 10px 0; font-size: 16px; font-weight: 600; }
+
+        /* --- CHART --- */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- JOURNAL LIST --- */
+        .journal-item {
+            border-bottom: 1px solid #eee;
+            padding: 12px 0;
+        }
+        .journal-item:last-child { border-bottom: none; }
+
+        .journal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .journal-title { font-weight: 600; font-size: 15px; }
+        .journal-cals { font-size: 14px; color: var(--text-secondary); }
+        
+        .journal-details {
+            display: none;
+            margin-top: 10px;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .journal-details.open { display: block; }
+
+        /* --- INPUTS --- */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            outline: none;
         }
 
         .btn {
-            width: 100%;
-            padding: 16px;
+            padding: 12px 20px;
+            border-radius: 12px;
             border: none;
-            border-radius: 16px;
-            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.2s;
-            margin-bottom: 12px;
-            position: relative;
-            overflow: hidden;
-            text-decoration: none;
+            font-size: 15px;
         }
 
-        .btn-primary {
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            box-shadow: 0 4px 12px rgba(51, 144, 236, 0.3);
-        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-block { width: 100%; }
 
-        .btn-secondary {
-            background-color: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            border: 1px solid rgba(0,0,0,0.1);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        /* Scanner Styles */
+        /* --- SCANNER --- */
         #scanner-view {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 100;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            z-index: 2000;
             display: none;
             flex-direction: column;
         }
-
-        #reader {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .scanner-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            background: rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .scan-area {
-            width: 250px;
-            height: 250px;
-            border: 2px solid rgba(255,255,255,0.8);
-            border-radius: 24px;
-            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5);
-            position: relative;
-        }
-        
-        .scan-area::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 20px;
-            right: 20px;
-            height: 2px;
-            background: rgba(255, 0, 0, 0.8);
-            box-shadow: 0 0 4px red;
-            animation: scan-line 2s infinite linear;
-        }
-
-        @keyframes scan-line {
-            0% { transform: translateY(-100px); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(100px); opacity: 0; }
-        }
-
-        .scanner-controls {
-            position: absolute;
-            bottom: 40px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            z-index: 101;
-        }
-
-        .btn-close {
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
+        #reader { width: 100%; height: 100%; object-fit: cover; }
+        .close-scanner {
+            position: absolute; bottom: 50px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.3);
             color: white;
-            border-radius: 50px;
-            padding: 12px 32px;
-            border: 1px solid rgba(255,255,255,0.3);
-            font-weight: 600;
-            cursor: pointer;
+            padding: 10px 30px;
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
         }
 
     </style>
 </head>
 <body>
 
-    <div class="container" id="home-view">
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard" class="tab-content active">
         <div class="card">
-            <div style="font-size: 64px; margin-bottom: 16px;">🥗</div>
-            <h1>Nutrition Scanner</h1>
-            <p>Scan barcodes or take photos to instantly log your meals and track calories.</p>
-            
-            <button class="btn btn-primary" onclick="startScanner()">
-                <span>🔍 Scan Barcode</span>
-            </button>
-            
-            <label class="btn btn-secondary">
-                <span>📸 Snap Food Photo</span>
-                <input type="file" accept="image/*" capture="environment" style="display: none;" onchange="handleFileUpload(this)">
+            <h2>📊 Today's Macros</h2>
+            <div class="chart-container">
+                <canvas id="macroChart"></canvas>
+            </div>
+            <div style="text-align: center; margin-top: 15px;">
+                <span style="font-size: 24px; font-weight: bold;" id="total-cals">0</span>
+                <span style="color: var(--text-secondary);"> kcal</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🚀 Quick Actions</h3>
+            <button class="btn btn-primary btn-block" onclick="openScanner()">🔍 Scan Barcode</button>
+            <div style="height: 10px;"></div>
+            <label class="btn btn-primary btn-block" style="text-align:center; display:block; background: var(--success);">
+                📸 Snap Photo
+                <input type="file" accept="image/*" capture="environment" style="display: none;" onchange="handlePhoto(this)">
             </label>
         </div>
-        
-        <p style="font-size: 12px; opacity: 0.5; margin-top: 20px;">Powered by AI & OpenFoodFacts</p>
     </div>
 
+    <!-- JOURNAL TAB -->
+    <div id="tab-journal" class="tab-content">
+        <h2>📅 Daily Journal</h2>
+        <div class="card" id="journal-list">
+            <!-- Items will be injected here -->
+            <p style="text-align:center; color: #999;">No logs yet today.</p>
+        </div>
+    </div>
+
+    <!-- LOG TAB -->
+    <div id="tab-log" class="tab-content">
+        <h2>📝 Text Log</h2>
+        <div class="card">
+            <p>Describe your meal:</p>
+            <div class="input-group">
+                <input type="text" id="text-log-input" placeholder="e.g. 2 eggs and toast">
+            </div>
+            <button class="btn btn-primary btn-block" onclick="sendTextLog()">Log Meal</button>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('dashboard', this)">
+            <div class="nav-icon">📊</div>
+            <div>Dashboard</div>
+        </div>
+        <div class="nav-item" onclick="switchTab('journal', this)">
+            <div class="nav-icon">📅</div>
+            <div>Journal</div>
+        </div>
+        <div class="nav-item" onclick="switchTab('log', this)">
+            <div class="nav-icon">📝</div>
+            <div>Log</div>
+        </div>
+    </div>
+
+    <!-- SCANNER OVERLAY -->
     <div id="scanner-view">
         <div id="reader"></div>
-        <div class="scanner-overlay">
-            <div class="scan-area"></div>
-        </div>
-        <div class="scanner-controls">
-            <button class="btn-close" onclick="stopScanner()">Close Scanner</button>
-        </div>
+        <button class="close-scanner" onclick="closeScanner()">Close</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        tg.MainButton.hide();
 
-        let html5QrcodeScanner;
+        // --- MOCK DATA (Default) ---
+        // In a real scenario, we parse this from URL params
+        let appData = {
+            total_cals: 0,
+            macros: { protein: 0, carbs: 0, fats: 0 },
+            logs: []
+        };
 
-        function startScanner() {
-            document.getElementById('home-view').style.display = 'none';
-            document.getElementById('scanner-view').style.display = 'flex';
+        // --- INITIALIZATION ---
+        function init() {
+            // Try to get data from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const dataParam = urlParams.get('data');
             
-            // Haptic feedback
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            if (dataParam) {
+                try {
+                    const decoded = JSON.parse(atob(dataParam));
+                    appData = decoded;
+                } catch (e) {
+                    console.error("Failed to parse data", e);
+                }
+            }
 
-            html5QrcodeScanner = new Html5Qrcode("reader");
+            renderDashboard();
+            renderJournal();
+        }
+
+        // --- RENDERING ---
+        function renderDashboard() {
+            document.getElementById('total-cals').innerText = appData.total_cals;
             
-            const config = { 
-                fps: 10, 
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0
-            };
-            
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
-                config, 
-                onScanSuccess,
-                onScanFailure
-            ).catch(err => {
-                console.error("Error starting scanner", err);
-                alert("Camera access failed. Please ensure you've granted permissions.");
-                stopScanner();
+            const ctx = document.getElementById('macroChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Protein', 'Carbs', 'Fats'],
+                    datasets: [{
+                        data: [appData.macros.protein, appData.macros.carbs, appData.macros.fats],
+                        backgroundColor: ['#34c759', '#007aff', '#ffcc00'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
             });
         }
 
-        function stopScanner() {
-            if (html5QrcodeScanner) {
+        function renderJournal() {
+            const list = document.getElementById('journal-list');
+            if (appData.logs.length === 0) return;
+
+            list.innerHTML = '';
+            appData.logs.forEach((log, index) => {
+                const item = document.createElement('div');
+                item.className = 'journal-item';
+                item.innerHTML = `
+                    <div class="journal-header" onclick="toggleDetails(${index})">
+                        <span class="journal-title">${log.name}</span>
+                        <span class="journal-cals">${log.cals} kcal ▼</span>
+                    </div>
+                    <div class="journal-details" id="details-${index}">
+                        <p>💪 Protein: ${log.prot}g</p>
+                        <p>🍞 Carbs: ${log.carbs}g</p>
+                        <p>🥑 Fats: ${log.fats}g</p>
+                        <p>🌟 Score: ${log.score}/10</p>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // --- ACTIONS ---
+        function switchTab(tabId, navEl) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            // Show selected
+            document.getElementById('tab-' + tabId).classList.add('active');
+            navEl.classList.add('active');
+        }
+
+        function toggleDetails(index) {
+            const el = document.getElementById(`details-${index}`);
+            el.classList.toggle('open');
+        }
+
+        function sendTextLog() {
+            const text = document.getElementById('text-log-input').value;
+            if(text) {
+                tg.sendData(JSON.stringify({ type: 'text', data: text }));
+                tg.close();
+            }
+        }
+
+        function handlePhoto(input) {
+            if (input.files && input.files[0]) {
+                tg.showAlert("Please use the Telegram attachment menu to send photos!");
+            }
+        }
+
+        // --- SCANNER LOGIC ---
+        let html5QrcodeScanner;
+
+        function openScanner() {
+            document.getElementById('scanner-view').style.display = 'flex';
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    tg.sendData(JSON.stringify({ type: 'barcode', data: decodedText }));
+                    closeScanner();
+                },
+                () => {}
+            );
+        }
+
+        function closeScanner() {
+            if(html5QrcodeScanner) {
                 html5QrcodeScanner.stop().then(() => {
-                    html5QrcodeScanner.clear();
-                    closeScannerView();
-                }).catch(err => {
-                    console.error("Failed to stop scanner", err);
-                    closeScannerView();
+                    document.getElementById('scanner-view').style.display = 'none';
                 });
             } else {
-                closeScannerView();
+                document.getElementById('scanner-view').style.display = 'none';
             }
         }
 
-        function closeScannerView() {
-            document.getElementById('scanner-view').style.display = 'none';
-            document.getElementById('home-view').style.display = 'flex';
-        }
+        // Start
+        init();
 
-        function onScanSuccess(decodedText, decodedResult) {
-            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            
-            // Send data back to bot
-            tg.sendData(JSON.stringify({ type: 'barcode', data: decodedText }));
-            stopScanner();
-        }
-
-        function onScanFailure(error) {
-            // console.warn(`Code scan error = ${error}`);
-        }
-
-        function handleFileUpload(input) {
-            if (input.files && input.files[0]) {
-                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
-                tg.showAlert("To send a photo, please use the paperclip icon 📎 in the chat!");
-            }
-        }
     </script>
 </body>
 </html>
