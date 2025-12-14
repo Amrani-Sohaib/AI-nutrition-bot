@@ -41,7 +41,7 @@ dp = Dispatcher()
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🥗 Log Meal (Photo)"), KeyboardButton(text="🔍 Scan Barcode")],
-        [KeyboardButton(text="📱 Smart Scanner (Web App)", web_app=WebAppInfo(url="https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/"))],
+        [KeyboardButton(text="📱 Open Dashboard")],
         [KeyboardButton(text="📝 Log Text"), KeyboardButton(text="📊 Daily Journal")],
         [KeyboardButton(text="❌ Cancel / Reset")]
     ],
@@ -86,6 +86,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     await message.answer(welcome_text, reply_markup=main_menu, parse_mode="HTML")
 
 @dp.message(Command("dashboard"))
+@dp.message(F.text == "📱 Open Dashboard")
 async def open_dashboard(message: Message):
     """
     Generates a link to the Web App with the user's current data encoded.
