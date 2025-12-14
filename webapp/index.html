@@ -260,28 +260,27 @@
             cursor: pointer;
         }
 
-        .sync-warning {
-            background: #fff3cd;
-            color: #856404;
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 13px;
-            margin-bottom: 16px;
-            text-align: center;
-            display: none;
+        .loading-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: var(--bg-color);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
         }
-
     </style>
 </head>
 <body>
 
+    <div id="loading" class="loading-overlay">
+        <div style="text-align: center;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🤖</div>
+            <div>Loading your data...</div>
+        </div>
+    </div>
+
     <!-- DASHBOARD TAB -->
     <div id="tab-dashboard" class="tab-content active">
         
-        <div id="sync-msg" class="sync-warning">
-            ⚠️ Data not synced. Open "Dashboard" from the bot menu to view your stats.
-        </div>
-
         <div class="card">
             <h2>Today's Macros</h2>
             <div class="chart-wrapper">
@@ -323,10 +322,7 @@
     <div id="tab-journal" class="tab-content">
         <h2>Daily Journal</h2>
         <div id="journal-list">
-            <div style="text-align:center; padding: 40px 0; color: var(--text-secondary);">
-                <div style="font-size: 40px; margin-bottom: 10px;">🍽️</div>
-                No meals logged yet.
-            </div>
+            <!-- Items will be injected here -->
         </div>
     </div>
 
@@ -362,7 +358,6 @@
             <div class="scan-frame"></div>
             <div class="scanner-controls">
                 <button class="control-btn" onclick="closeScanner()">✕</button>
-                <!-- File Upload for Barcode -->
                 <label class="control-btn">
                     🖼️
                     <input type="file" accept="image/*" style="display: none;" onchange="scanFromFile(this)">
@@ -371,98 +366,148 @@
         </div>
     </div>
 
-    <script>
+    <!-- FIREBASE MODULE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBbDwDy9N4fHsYtwzDRErHgWTYLzUl5Z6k",
+            authDomain: "ai-nutrition-bot-app.firebaseapp.com",
+            projectId: "ai-nutrition-bot-app",
+            storageBucket: "ai-nutrition-bot-app.firebasestorage.app",
+            messagingSenderId: "411365165434",
+            appId: "1:411365165434:web:1fa88ddacd3e6c27d3aec3",
+            measurementId: "G-XG5SBH60GE"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let appData = {
-            total_cals: 0,
-            macros: { protein: 0, carbs: 0, fats: 0 },
-            logs: []
-        };
+        let macroChart = null;
 
-        function init() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const dataParam = urlParams.get('data');
+        // Get User ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('userId');
+
+        if (!userId) {
+            document.getElementById('loading').innerHTML = "⚠️ Error: No User ID found.";
+        } else {
+            // Listen to Real-time updates
+            const userDocRef = doc(db, "users", userId);
             
-            if (dataParam) {
-                try {
-                    appData = JSON.parse(atob(dataParam));
-                } catch (e) { console.error(e); }
-            } else {
-                // Show sync warning if no data
-                document.getElementById('sync-msg').style.display = 'block';
-            }
+            onSnapshot(userDocRef, (doc) => {
+                const loadingEl = document.getElementById('loading');
+                if(loadingEl) loadingEl.style.opacity = '0';
+                setTimeout(() => { if(loadingEl) loadingEl.style.display = 'none'; }, 300);
 
-            renderDashboard();
-            renderJournal();
+                if (doc.exists()) {
+                    const data = doc.data();
+                    updateDashboard(data);
+                } else {
+                    console.log("No data yet");
+                    updateDashboard({ total_cals: 0, macros: {protein:0, carbs:0, fats:0}, logs: [] });
+                }
+            }, (error) => {
+                console.error("Error getting document:", error);
+                document.getElementById('loading').innerHTML = "⚠️ Error loading data.";
+            });
         }
 
-        function renderDashboard() {
-            document.getElementById('total-cals').innerText = appData.total_cals;
-            
+        function updateDashboard(data) {
+            // Update Calories
+            document.getElementById('total-cals').innerText = data.total_cals || 0;
+
+            // Update Chart
             const ctx = document.getElementById('macroChart').getContext('2d');
+            const macros = data.macros || { protein: 0, carbs: 0, fats: 0 };
             
-            // If all 0, show gray ring
-            let data = [appData.macros.protein, appData.macros.carbs, appData.macros.fats];
+            let chartData = [macros.protein, macros.carbs, macros.fats];
             let colors = ['#34c759', '#007aff', '#ffcc00'];
             
-            if (data.every(v => v === 0)) {
-                data = [1];
+            if (chartData.every(v => v === 0)) {
+                chartData = [1];
                 colors = ['#e5e5ea'];
             }
 
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Protein', 'Carbs', 'Fats'],
-                    datasets: [{
-                        data: data,
-                        backgroundColor: colors,
-                        borderWidth: 0,
-                        cutout: '75%'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                    animation: { animateScale: true, animateRotate: true }
-                }
-            });
-        }
+            if (macroChart) {
+                macroChart.data.datasets[0].data = chartData;
+                macroChart.data.datasets[0].backgroundColor = colors;
+                macroChart.update();
+            } else {
+                macroChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Protein', 'Carbs', 'Fats'],
+                        datasets: [{
+                            data: chartData,
+                            backgroundColor: colors,
+                            borderWidth: 0,
+                            cutout: '75%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                        animation: { animateScale: true, animateRotate: true }
+                    }
+                });
+            }
 
-        function renderJournal() {
+            // Update Journal
             const list = document.getElementById('journal-list');
-            if (appData.logs.length === 0) return;
-
-            list.innerHTML = '';
-            appData.logs.forEach((log, index) => {
-                const item = document.createElement('div');
-                item.className = 'journal-item';
-                item.innerHTML = `
-                    <div class="j-header" onclick="toggleDetails(${index})">
-                        <span class="j-title">${log.name}</span>
-                        <span class="j-cals">${log.cals} kcal</span>
-                    </div>
-                    <div class="j-details" id="details-${index}">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                            <span>💪 Protein</span> <span>${log.prot}g</span>
+            const logs = data.logs || [];
+            
+            if (logs.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align:center; padding: 40px 0; color: var(--text-secondary);">
+                        <div style="font-size: 40px; margin-bottom: 10px;">🍽️</div>
+                        No meals logged yet today.
+                    </div>`;
+            } else {
+                list.innerHTML = '';
+                logs.forEach((log, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'journal-item';
+                    item.innerHTML = `
+                        <div class="j-header" onclick="window.toggleDetails(${index})">
+                            <span class="j-title">${log.name}</span>
+                            <span class="j-cals">${log.cals} kcal</span>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                            <span>🍞 Carbs</span> <span>${log.carbs}g</span>
+                        <div class="j-details" id="details-${index}">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span>💪 Protein</span> <span>${log.prot}g</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span>🍞 Carbs</span> <span>${log.carbs}g</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span>🥑 Fats</span> <span>${log.fats}g</span>
+                            </div>
+                            <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #eee;">
+                                🌟 Health Score: <b>${log.score}/10</b>
+                            </div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                            <span>🥑 Fats</span> <span>${log.fats}g</span>
-                        </div>
-                        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #eee;">
-                            🌟 Health Score: <b>${log.score}/10</b>
-                        </div>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
+                    `;
+                    list.appendChild(item);
+                });
+            }
         }
+
+        // Expose functions to global scope for HTML onclick events
+        window.toggleDetails = function(index) {
+            const el = document.getElementById(`details-${index}`);
+            if(el) el.classList.toggle('open');
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+    </script>
+
+    <script>
+        // UI Logic (Non-Module)
+        const tg = window.Telegram.WebApp;
 
         function switchTab(tabId, navEl) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -470,11 +515,6 @@
             document.getElementById('tab-' + tabId).classList.add('active');
             navEl.classList.add('active');
             if(tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-        }
-
-        function toggleDetails(index) {
-            document.getElementById(`details-${index}`).classList.toggle('open');
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
 
         function sendTextLog() {
@@ -512,8 +552,6 @@
         function scanFromFile(input) {
             if (input.files.length === 0) return;
             const imageFile = input.files[0];
-            
-            // Use Html5Qrcode to scan file
             const html5QrCode = new Html5Qrcode("reader");
             html5QrCode.scanFile(imageFile, true)
                 .then(decodedText => {
@@ -535,8 +573,6 @@
                 document.getElementById('scanner-view').style.display = 'none';
             }
         }
-
-        init();
     </script>
 </body>
 </html>

@@ -22,6 +22,7 @@ from src.services.openai_service import process_user_message, analyze_food_image
 from src.services.off_service import search_product, get_product_by_barcode
 from src.services.barcode_service import decode_barcode
 from src.utils.visualization import generate_text_progress_bar
+from src.services.firebase_service import init_firebase, update_user_stats_in_firebase
 
 # Define States
 class BotStates(StatesGroup):
@@ -35,6 +36,9 @@ logging.basicConfig(level=logging.INFO)
 # Initialize bot and dispatcher
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
+
+# Initialize Firebase
+init_firebase()
 
 # Main Menu Keyboard
 # NOTE: Replace 'https://your-webapp-url.com' with your actual hosted URL
@@ -89,47 +93,24 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
 @dp.message(F.text == "📱 Open Dashboard")
 async def open_dashboard(message: Message):
     """
-    Generates a link to the Web App with the user's current data encoded.
+    Generates a link to the Web App with the user's ID for real-time syncing.
     """
     user_id = message.from_user.id
     
-    # Fetch Data
+    # Sync latest data to Firebase before opening
     summary = get_daily_summary(user_id)
     logs = get_daily_logs(user_id)
+    update_user_stats_in_firebase(user_id, summary, logs)
     
-    # Prepare JSON payload
-    payload = {
-        "total_cals": summary['total_calories'] or 0,
-        "macros": {
-            "protein": summary['total_protein'] or 0,
-            "carbs": summary['total_carbs'] or 0,
-            "fats": summary['total_fats'] or 0
-        },
-        "logs": []
-    }
-    
-    if logs:
-        for log in logs:
-            payload["logs"].append({
-                "name": log['food_name'],
-                "cals": log['calories'],
-                "prot": log['protein'],
-                "carbs": log['carbs'],
-                "fats": log['fats'],
-                "score": log['health_score']
-            })
-            
-    # Encode to Base64
-    json_str = json.dumps(payload)
-    encoded_data = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
-    
-    # Construct URL
+    # Construct URL with userId param
     base_url = "https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/"
-    full_url = f"{base_url}?data={encoded_data}"
+    full_url = f"{base_url}?userId={user_id}"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚀 Open Interactive Dashboard", web_app=WebAppInfo(url=full_url))]
     ])
+    
+    await message.answer("Click below to open your real-time dashboard:", reply_markup=keyboard)
     
     await message.answer("📊 <b>Your Personal Dashboard is ready!</b>\nClick below to view charts and details.", reply_markup=keyboard, parse_mode="HTML")
 
@@ -253,6 +234,11 @@ async def delete_log_item(callback: CallbackQuery):
     log_id = int(callback.data.split(":")[1])
     delete_log(log_id)
     
+    # Sync to Firebase
+    summary = get_daily_summary(callback.from_user.id)
+    logs = get_daily_logs(callback.from_user.id)
+    update_user_stats_in_firebase(callback.from_user.id, summary, logs)
+    
     await callback.answer("Item deleted.")
     
     # Refresh the list
@@ -324,6 +310,12 @@ async def confirm_clear_logs(callback: CallbackQuery):
 @dp.callback_query(F.data == "clear_logs_yes")
 async def clear_logs_yes(callback: CallbackQuery):
     clear_daily_logs(callback.from_user.id)
+    
+    # Sync to Firebase (Empty)
+    summary = get_daily_summary(callback.from_user.id)
+    logs = []
+    update_user_stats_in_firebase(callback.from_user.id, summary, logs)
+    
     await callback.message.edit_text("✅ <b>Today's logs have been cleared.</b>", parse_mode="HTML")
     await callback.answer("Cleared!")
 
@@ -482,6 +474,11 @@ async def handle_photo(message: Message, state: FSMContext):
             conn.commit()
             conn.close()
             
+            # Sync to Firebase
+            summary = get_daily_summary(message.from_user.id)
+            logs = get_daily_logs(message.from_user.id)
+            update_user_stats_in_firebase(message.from_user.id, summary, logs)
+            
             avg_score = sum(health_scores) / len(health_scores) if health_scores else 0
             
             # Generate text-based chart
@@ -563,6 +560,11 @@ async def process_portion_input(message: Message, state: FSMContext):
     conn.commit()
     conn.close()
     
+    # Sync to Firebase
+    summary = get_daily_summary(message.from_user.id)
+    logs = get_daily_logs(message.from_user.id)
+    update_user_stats_in_firebase(message.from_user.id, summary, logs)
+    
     # Clear state
     await state.clear()
     
@@ -640,6 +642,11 @@ async def log_food_handler(message: Message, state: FSMContext) -> None:
                 
             conn.commit()
             conn.close()
+            
+            # Sync to Firebase
+            summary = get_daily_summary(message.from_user.id)
+            logs = get_daily_logs(message.from_user.id)
+            update_user_stats_in_firebase(message.from_user.id, summary, logs)
             
             # Generate text-based chart
             macro_chart = generate_text_progress_bar(total_prot, total_carbs, total_fats)
@@ -740,6 +747,11 @@ async def web_app_data_handler(message: Message, state: FSMContext):
                     
                 conn.commit()
                 conn.close()
+                
+                # Sync to Firebase
+                summary = get_daily_summary(message.from_user.id)
+                logs = get_daily_logs(message.from_user.id)
+                update_user_stats_in_firebase(message.from_user.id, summary, logs)
                 
                 macro_chart = generate_text_progress_bar(total_prot, total_carbs, total_fats)
                 
@@ -951,6 +963,9 @@ async def toggle_daily_details(callback: CallbackQuery):
 async def main() -> None:
     # Initialize DB
     init_db()
+    
+    # Initialize Firebase
+    init_firebase()
     
     # Start polling
     await dp.start_polling(bot)
