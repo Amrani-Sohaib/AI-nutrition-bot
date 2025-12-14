@@ -2,90 +2,239 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Nutrition Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nutrition Scanner</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-button-color: #3390ec;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f4f5;
+            --card-bg: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--tg-theme-bg-color, #fff);
-            color: var(--tg-theme-text-color, #000);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            padding: 24px;
+            z-index: 1;
         }
+
+        .card {
+            background: var(--tg-theme-bg-color);
+            border-radius: 24px;
+            padding: 32px 24px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            margin-bottom: 20px;
+            transition: transform 0.2s ease;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+        }
+
+        p {
+            font-size: 15px;
+            opacity: 0.7;
+            margin: 0 0 24px 0;
+            line-height: 1.5;
+        }
+
         .btn {
             width: 100%;
-            padding: 15px;
-            margin: 10px 0;
+            padding: 16px;
             border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
         }
+
         .btn-primary {
-            background-color: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #fff);
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            box-shadow: 0 4px 12px rgba(51, 144, 236, 0.3);
         }
+
         .btn-secondary {
-            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
-            color: var(--tg-theme-text-color, #000);
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            border: 1px solid rgba(0,0,0,0.1);
         }
+
         .btn:active {
             transform: scale(0.98);
         }
+
+        /* Scanner Styles */
+        #scanner-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+        }
+
         #reader {
             width: 100%;
-            max-width: 400px;
-            margin-bottom: 20px;
-            display: none;
+            height: 100%;
+            object-fit: cover;
         }
-        .hidden {
-            display: none;
+
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+
+        .scan-area {
+            width: 250px;
+            height: 250px;
+            border: 2px solid rgba(255,255,255,0.8);
+            border-radius: 24px;
+            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        
+        .scan-area::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: rgba(255, 0, 0, 0.8);
+            box-shadow: 0 0 4px red;
+            animation: scan-line 2s infinite linear;
+        }
+
+        @keyframes scan-line {
+            0% { transform: translateY(-100px); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(100px); opacity: 0; }
+        }
+
+        .scanner-controls {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 101;
+        }
+
+        .btn-close {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            border-radius: 50px;
+            padding: 12px 32px;
+            border: 1px solid rgba(255,255,255,0.3);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
 
-    <div id="main-menu">
-        <h2>📸 Smart Logger</h2>
+    <div class="container" id="home-view">
+        <div class="card">
+            <div style="font-size: 64px; margin-bottom: 16px;">🥗</div>
+            <h1>Nutrition Scanner</h1>
+            <p>Scan barcodes or take photos to instantly log your meals and track calories.</p>
+            
+            <button class="btn btn-primary" onclick="startScanner()">
+                <span>🔍 Scan Barcode</span>
+            </button>
+            
+            <label class="btn btn-secondary">
+                <span>📸 Snap Food Photo</span>
+                <input type="file" accept="image/*" capture="environment" style="display: none;" onchange="handleFileUpload(this)">
+            </label>
+        </div>
         
-        <button class="btn btn-primary" onclick="startScanner()">🔍 Scan Barcode</button>
-        
-        <!-- This input triggers the native camera directly -->
-        <label class="btn btn-secondary" style="display:block; text-align:center; padding-top:15px;">
-            🥗 Snap Food Photo
-            <input type="file" accept="image/*" capture="environment" style="display: none;" onchange="handleFileUpload(this)">
-        </label>
+        <p style="font-size: 12px; opacity: 0.5; margin-top: 20px;">Powered by AI & OpenFoodFacts</p>
     </div>
 
-    <div id="scanner-container" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div id="scanner-view">
         <div id="reader"></div>
-        <button class="btn btn-secondary" onclick="stopScanner()">❌ Cancel Scan</button>
+        <div class="scanner-overlay">
+            <div class="scan-area"></div>
+        </div>
+        <div class="scanner-controls">
+            <button class="btn-close" onclick="stopScanner()">Close Scanner</button>
+        </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Expand to full height
+        tg.expand();
+        tg.MainButton.hide();
 
         let html5QrcodeScanner;
 
         function startScanner() {
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('scanner-container').classList.remove('hidden');
-            document.getElementById('scanner-container').style.display = 'flex';
+            document.getElementById('home-view').style.display = 'none';
+            document.getElementById('scanner-view').style.display = 'flex';
+            
+            // Haptic feedback
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
             html5QrcodeScanner = new Html5Qrcode("reader");
             
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
             
             html5QrcodeScanner.start(
                 { facingMode: "environment" }, 
@@ -94,7 +243,7 @@
                 onScanFailure
             ).catch(err => {
                 console.error("Error starting scanner", err);
-                alert("Camera access failed: " + err);
+                alert("Camera access failed. Please ensure you've granted permissions.");
                 stopScanner();
             });
         }
@@ -103,38 +252,37 @@
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.stop().then(() => {
                     html5QrcodeScanner.clear();
-                    document.getElementById('scanner-container').classList.add('hidden');
-                    document.getElementById('scanner-container').style.display = 'none';
-                    document.getElementById('main-menu').classList.remove('hidden');
-                }).catch(err => console.error("Failed to stop scanner", err));
+                    closeScannerView();
+                }).catch(err => {
+                    console.error("Failed to stop scanner", err);
+                    closeScannerView();
+                });
             } else {
-                document.getElementById('scanner-container').classList.add('hidden');
-                document.getElementById('main-menu').classList.remove('hidden');
+                closeScannerView();
             }
         }
 
+        function closeScannerView() {
+            document.getElementById('scanner-view').style.display = 'none';
+            document.getElementById('home-view').style.display = 'flex';
+        }
+
         function onScanSuccess(decodedText, decodedResult) {
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            
             // Send data back to bot
             tg.sendData(JSON.stringify({ type: 'barcode', data: decodedText }));
             stopScanner();
         }
 
         function onScanFailure(error) {
-            // handle scan failure, usually better to ignore and keep scanning.
             // console.warn(`Code scan error = ${error}`);
         }
 
         function handleFileUpload(input) {
             if (input.files && input.files[0]) {
-                // For photos, we can't send the file content via sendData (limit is 4096 bytes).
-                // So we just tell the bot "User wants to upload photo" or we handle it differently.
-                // However, standard Web Apps can't upload files to the bot chat directly easily without an external server.
-                // TRICK: We can't send the image via sendData. 
-                // So for the "Photo" button in WebApp, it's often better to just close and let user use the native attachment, 
-                // OR upload to a server and send the URL.
-                
-                // Since we don't have a backend server for images yet, we will alert the user.
-                alert("To send a photo, please use the paperclip icon in the chat! The Web App is best for Barcodes.");
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                tg.showAlert("To send a photo, please use the paperclip icon 📎 in the chat!");
             }
         }
     </script>
