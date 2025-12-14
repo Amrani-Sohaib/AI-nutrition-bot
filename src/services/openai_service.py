@@ -26,7 +26,8 @@ async def analyze_food_image(image_path: str, caption: str = ""):
     3. Calculate the calories and macros (Protein, Carbs, Fats) for these estimated quantities.
     4. Estimate key micronutrients (e.g., Vitamin C, Iron, Calcium) as a short string summary.
     5. Give a health score from 1-10 based on nutritional value (10 is healthiest).
-    6. If the user provided a caption: "{caption}", use it to refine your analysis.
+    6. Classify the meal period as one of: "Breakfast", "Lunch", "Dinner", "Snack".
+    7. If the user provided a caption: "{caption}", use it to refine your analysis.
     
     IMPORTANT: 
     - Analyze the ACTUAL image provided. Do NOT return example data.
@@ -44,12 +45,13 @@ async def analyze_food_image(image_path: str, caption: str = ""):
         - "weight_g" (estimated grams)
         - "micronutrients" (string, e.g. "High in Vit C, Iron")
         - "health_score" (int, 1-10)
+        - "meal_period" (string: "Breakfast", "Lunch", "Dinner", "Snack")
     - "reply": A friendly, conversational message to the user in their language (detect from caption or default to English). Explain what you see, how you estimated the weight, and the total nutrition.
     
     Example JSON structure (DO NOT COPY VALUES):
     {{
         "log_data": [
-            {{"item": "Detected Food Name", "calories": 0, "protein": 0, "carbs": 0, "fats": 0, "weight_g": 0, "micronutrients": "...", "health_score": 5}}
+            {{"item": "Detected Food Name", "calories": 0, "protein": 0, "carbs": 0, "fats": 0, "weight_g": 0, "micronutrients": "...", "health_score": 5, "meal_period": "Lunch"}}
         ],
         "reply": "I see [Food Name]..."
     }}
@@ -100,7 +102,8 @@ async def process_user_message(text: str):
     Task:
     1. Determine if the user is trying to log food or just chatting.
     2. If logging food: Extract items, estimate calories/macros, micronutrients, and health score (1-10).
-    3. If chatting: Respond helpfully.
+    3. Classify the meal period as one of: "Breakfast", "Lunch", "Dinner", "Snack".
+    4. If chatting: Respond helpfully.
     
     IMPORTANT:
     - Keep the "reply" SHORT and CONCISE (max 2 sentences).
@@ -116,7 +119,8 @@ async def process_user_message(text: str):
                 "carbs": 0,
                 "fats": 0,
                 "micronutrients": "Vitamin A, C",
-                "health_score": 8
+                "health_score": 8,
+                "meal_period": "Dinner"
             }}
         ],
         "reply": "Your conversational response here. Adapt to the user's language and tone."

@@ -457,6 +457,7 @@ async def handle_photo(message: Message, state: FSMContext):
                 micros = item.get('micronutrients', 'N/A')
                 score = item.get('health_score', 5)
                 weight = item.get('weight_g', 'N/A')
+                meal_period = item.get('meal_period', 'Snack')
                 
                 total_cals += cals
                 total_prot += prot
@@ -467,9 +468,9 @@ async def handle_photo(message: Message, state: FSMContext):
                 
                 # Save to DB with group_id
                 cursor.execute('''
-                    INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id))
+                    INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id, meal_period)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id, meal_period))
                 
             conn.commit()
             conn.close()
@@ -548,14 +549,26 @@ async def process_portion_input(message: Message, state: FSMContext):
     # Generate group ID
     group_id = str(uuid.uuid4())
     
+    # Determine meal period based on time
+    from datetime import datetime
+    hour = datetime.now().hour
+    if 5 <= hour < 11:
+        meal_period = "Breakfast"
+    elif 11 <= hour < 15:
+        meal_period = "Lunch"
+    elif 18 <= hour < 22:
+        meal_period = "Dinner"
+    else:
+        meal_period = "Snack"
+
     # Log to DB
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (message.from_user.id, product['name'], final_cals, final_prot, final_carbs, final_fats, "From Barcode", 5, group_id))
+        INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id, meal_period)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (message.from_user.id, product['name'], final_cals, final_prot, final_carbs, final_fats, "From Barcode", 5, group_id, meal_period))
     
     conn.commit()
     conn.close()
@@ -628,6 +641,7 @@ async def log_food_handler(message: Message, state: FSMContext) -> None:
                 fats = item.get('fats', 0)
                 micros = item.get('micronutrients', 'N/A')
                 score = item.get('health_score', 5)
+                meal_period = item.get('meal_period', 'Snack')
                 
                 total_cals += cals
                 total_prot += prot
@@ -636,9 +650,9 @@ async def log_food_handler(message: Message, state: FSMContext) -> None:
                 item_names.append(name)
                 
                 cursor.execute('''
-                    INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id))
+                    INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id, meal_period)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id, meal_period))
                 
             conn.commit()
             conn.close()

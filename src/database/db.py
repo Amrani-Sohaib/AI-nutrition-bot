@@ -33,6 +33,7 @@ def init_db():
             fats REAL,
             micronutrients TEXT,
             health_score INTEGER,
+            meal_period TEXT DEFAULT 'Snack',
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (user_id)
         )
@@ -46,6 +47,11 @@ def init_db():
         
     try:
         cursor.execute("ALTER TABLE logs ADD COLUMN health_score INTEGER")
+    except sqlite3.OperationalError:
+        pass # Column likely exists
+
+    try:
+        cursor.execute("ALTER TABLE logs ADD COLUMN meal_period TEXT DEFAULT 'Snack'")
     except sqlite3.OperationalError:
         pass # Column likely exists
 

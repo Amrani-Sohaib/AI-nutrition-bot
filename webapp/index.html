@@ -155,7 +155,41 @@
         .cals-big { font-size: 28px; font-weight: 800; display: block; line-height: 1; }
         .cals-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
 
+        /* --- LEGEND --- */
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
         /* --- JOURNAL --- */
+        .journal-period {
+            margin-top: 20px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding-left: 4px;
+        }
+
         .journal-item {
             background: var(--card-bg);
             border-radius: 12px;
@@ -290,6 +324,9 @@
                     <span class="cals-label">KCAL</span>
                 </div>
             </div>
+            <div id="macro-legend" class="chart-legend">
+                <!-- Legend items injected here -->
+            </div>
         </div>
 
         <h3 style="margin-left: 4px; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Quick Actions</h3>
@@ -330,6 +367,12 @@
     <div id="tab-log" class="tab-content">
         <h2>Log Meal</h2>
         <div class="card">
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px;">
+                <button onclick="addTag('Breakfast: ')" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; background: white; font-size: 13px;">🍳 Breakfast</button>
+                <button onclick="addTag('Lunch: ')" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; background: white; font-size: 13px;">🥗 Lunch</button>
+                <button onclick="addTag('Dinner: ')" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; background: white; font-size: 13px;">🍲 Dinner</button>
+                <button onclick="addTag('Snack: ')" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; background: white; font-size: 13px;">🍎 Snack</button>
+            </div>
             <textarea id="text-log-input" rows="4" style="width: 100%; border: 1px solid #eee; border-radius: 12px; padding: 12px; font-family: inherit; font-size: 16px; resize: none; box-sizing: border-box;" placeholder="e.g. 2 eggs, avocado toast and coffee"></textarea>
             <button onclick="sendTextLog()" style="width: 100%; background: var(--accent); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: 600; font-size: 16px; margin-top: 12px;">Log Meal</button>
         </div>
@@ -427,6 +470,23 @@
             let chartData = [macros.protein, macros.carbs, macros.fats];
             let colors = ['#34c759', '#007aff', '#ffcc00'];
             
+            // Update Legend
+            const legendEl = document.getElementById('macro-legend');
+            legendEl.innerHTML = `
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #34c759"></div>
+                    <span>Protein: ${Math.round(macros.protein)}g</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #007aff"></div>
+                    <span>Carbs: ${Math.round(macros.carbs)}g</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffcc00"></div>
+                    <span>Fats: ${Math.round(macros.fats)}g</span>
+                </div>
+            `;
+
             if (chartData.every(v => v === 0)) {
                 chartData = [1];
                 colors = ['#e5e5ea'];
@@ -469,30 +529,55 @@
                     </div>`;
             } else {
                 list.innerHTML = '';
-                logs.forEach((log, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'journal-item';
-                    item.innerHTML = `
-                        <div class="j-header" onclick="window.toggleDetails(${index})">
-                            <span class="j-title">${log.name}</span>
-                            <span class="j-cals">${log.cals} kcal</span>
-                        </div>
-                        <div class="j-details" id="details-${index}">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                <span>💪 Protein</span> <span>${log.prot}g</span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                <span>🍞 Carbs</span> <span>${log.carbs}g</span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                <span>🥑 Fats</span> <span>${log.fats}g</span>
-                            </div>
-                            <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #eee;">
-                                🌟 Health Score: <b>${log.score}/10</b>
-                            </div>
-                        </div>
-                    `;
-                    list.appendChild(item);
+                
+                // Group logs by period
+                const periods = { 'Breakfast': [], 'Lunch': [], 'Dinner': [], 'Snack': [] };
+                logs.forEach(log => {
+                    const p = log.period || 'Snack';
+                    if (!periods[p]) periods[p] = [];
+                    periods[p].push(log);
+                });
+
+                // Order: Breakfast, Lunch, Dinner, Snack
+                const order = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+                
+                order.forEach(period => {
+                    if (periods[period] && periods[period].length > 0) {
+                        // Add Header
+                        const header = document.createElement('div');
+                        header.className = 'journal-period';
+                        header.innerText = period;
+                        list.appendChild(header);
+
+                        // Add Items
+                        periods[period].forEach((log, index) => {
+                            // Use a unique ID based on period and index to avoid collisions
+                            const uniqueId = `${period}-${index}`;
+                            const item = document.createElement('div');
+                            item.className = 'journal-item';
+                            item.innerHTML = `
+                                <div class="j-header" onclick="window.toggleDetails('${uniqueId}')">
+                                    <span class="j-title">${log.name}</span>
+                                    <span class="j-cals">${log.cals} kcal</span>
+                                </div>
+                                <div class="j-details" id="details-${uniqueId}">
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                        <span>💪 Protein</span> <span>${log.prot}g</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                        <span>🍞 Carbs</span> <span>${log.carbs}g</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                        <span>🥑 Fats</span> <span>${log.fats}g</span>
+                                    </div>
+                                    <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #eee;">
+                                        🌟 Health Score: <b>${log.score}/10</b>
+                                    </div>
+                                </div>
+                            `;
+                            list.appendChild(item);
+                        });
+                    }
                 });
             }
         }
@@ -523,6 +608,12 @@
                 tg.sendData(JSON.stringify({ type: 'text', data: text }));
                 tg.close();
             }
+        }
+
+        function addTag(tag) {
+            const input = document.getElementById('text-log-input');
+            input.value = tag + input.value;
+            input.focus();
         }
 
         function handlePhoto(input) {

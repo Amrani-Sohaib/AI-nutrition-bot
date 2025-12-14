@@ -17,8 +17,10 @@ def init_firebase():
         return
 
     try:
-        cred = credentials.Certificate(CRED_PATH)
-        firebase_admin.initialize_app(cred)
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(CRED_PATH)
+            firebase_admin.initialize_app(cred)
+        
         db = firestore.client()
         logging.info("✅ Firebase Admin SDK initialized successfully.")
     except Exception as e:
@@ -44,7 +46,8 @@ def update_user_stats_in_firebase(user_id, summary_data, logs_data):
                 "prot": log['protein'],
                 "carbs": log['carbs'],
                 "fats": log['fats'],
-                "score": log['health_score']
+                "score": log['health_score'],
+                "period": log['meal_period'] if 'meal_period' in log.keys() else 'Snack'
             })
 
         data = {
