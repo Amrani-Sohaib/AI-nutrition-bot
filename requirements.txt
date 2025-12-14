@@ -4,3 +4,4 @@ python-dotenv
 aiohttp
 pyzbar
 pillow
+matplotlib

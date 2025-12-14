@@ -16,25 +16,42 @@ async def analyze_food_image(image_path: str, caption: str = ""):
             return base64.b64encode(image_file.read()).decode('utf-8')
 
     base64_image = encode_image(image_path)
+    print(f"DEBUG: Sending image to OpenAI. Size: {len(base64_image)} bytes")
+
 
     prompt = f"""
     You are an expert AI Nutritionist. 
     1. Analyze the image and identify the food items.
     2. Estimate the weight/quantity of each item based on visual cues.
     3. Calculate the calories and macros (Protein, Carbs, Fats) for these estimated quantities.
-    4. If the user provided a caption: "{caption}", use it to refine your analysis.
+    4. Estimate key micronutrients (e.g., Vitamin C, Iron, Calcium) as a short string summary.
+    5. Give a health score from 1-10 based on nutritional value (10 is healthiest).
+    6. If the user provided a caption: "{caption}", use it to refine your analysis.
+    
+    IMPORTANT: 
+    - Analyze the ACTUAL image provided. Do NOT return example data.
+    - If the image is not food, return an empty list for "log_data" and explain why in "reply".
+    - Keep the "reply" SHORT and CONCISE (max 2 sentences). Do not list all macros in the reply, just a friendly summary.
     
     Output Format:
     Return a JSON object with two keys:
-    - "log_data": A list of objects, each containing: "item" (name), "calories" (int), "protein" (float), "carbs" (float), "fats" (float), "weight_g" (estimated grams).
+    - "log_data": A list of objects, each containing: 
+        - "item" (name)
+        - "calories" (int)
+        - "protein" (float)
+        - "carbs" (float)
+        - "fats" (float)
+        - "weight_g" (estimated grams)
+        - "micronutrients" (string, e.g. "High in Vit C, Iron")
+        - "health_score" (int, 1-10)
     - "reply": A friendly, conversational message to the user in their language (detect from caption or default to English). Explain what you see, how you estimated the weight, and the total nutrition.
     
-    Example JSON structure:
+    Example JSON structure (DO NOT COPY VALUES):
     {{
         "log_data": [
-            {{"item": "Grilled Chicken", "calories": 200, "protein": 40, "carbs": 0, "fats": 5, "weight_g": 150}}
+            {{"item": "Detected Food Name", "calories": 0, "protein": 0, "carbs": 0, "fats": 0, "weight_g": 0, "micronutrients": "...", "health_score": 5}}
         ],
-        "reply": "That looks like a delicious grilled chicken breast! I estimated it's about 150g..."
+        "reply": "I see [Food Name]..."
     }}
     """
 
@@ -82,20 +99,33 @@ async def process_user_message(text: str):
     
     Task:
     1. Determine if the user is trying to log food or just chatting.
-    2. If logging food: Extract items, estimate calories/macros.
+    2. If logging food: Extract items, estimate calories/macros, micronutrients, and health score (1-10).
     3. If chatting: Respond helpfully.
+    
+    IMPORTANT:
+    - Keep the "reply" SHORT and CONCISE (max 2 sentences).
     
     Output JSON:
     {{
         "is_food_log": boolean,
-        "log_data": [ ... (same format as above, empty if not logging) ... ],
+        "log_data": [ 
+            {{
+                "item": "Food Name",
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fats": 0,
+                "micronutrients": "Vitamin A, C",
+                "health_score": 8
+            }}
+        ],
         "reply": "Your conversational response here. Adapt to the user's language and tone."
     }}
     """
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that outputs raw JSON."},
                 {"role": "user", "content": prompt}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nutrition Scanner</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .btn-primary {
+            background-color: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        .btn-secondary {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000);
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu">
+        <h2>📸 Smart Logger</h2>
+        
+        <button class="btn btn-primary" onclick="startScanner()">🔍 Scan Barcode</button>
+        
+        <!-- This input triggers the native camera directly -->
+        <label class="btn btn-secondary" style="display:block; text-align:center; padding-top:15px;">
+            🥗 Snap Food Photo
+            <input type="file" accept="image/*" capture="environment" style="display: none;" onchange="handleFileUpload(this)">
+        </label>
+    </div>
+
+    <div id="scanner-container" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <div id="reader"></div>
+        <button class="btn btn-secondary" onclick="stopScanner()">❌ Cancel Scan</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Expand to full height
+
+        let html5QrcodeScanner;
+
+        function startScanner() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('scanner-container').classList.remove('hidden');
+            document.getElementById('scanner-container').style.display = 'flex';
+
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                console.error("Error starting scanner", err);
+                alert("Camera access failed: " + err);
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                    document.getElementById('scanner-container').classList.add('hidden');
+                    document.getElementById('scanner-container').style.display = 'none';
+                    document.getElementById('main-menu').classList.remove('hidden');
+                }).catch(err => console.error("Failed to stop scanner", err));
+            } else {
+                document.getElementById('scanner-container').classList.add('hidden');
+                document.getElementById('main-menu').classList.remove('hidden');
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Send data back to bot
+            tg.sendData(JSON.stringify({ type: 'barcode', data: decodedText }));
+            stopScanner();
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure, usually better to ignore and keep scanning.
+            // console.warn(`Code scan error = ${error}`);
+        }
+
+        function handleFileUpload(input) {
+            if (input.files && input.files[0]) {
+                // For photos, we can't send the file content via sendData (limit is 4096 bytes).
+                // So we just tell the bot "User wants to upload photo" or we handle it differently.
+                // However, standard Web Apps can't upload files to the bot chat directly easily without an external server.
+                // TRICK: We can't send the image via sendData. 
+                // So for the "Photo" button in WebApp, it's often better to just close and let user use the native attachment, 
+                // OR upload to a server and send the URL.
+                
+                // Since we don't have a backend server for images yet, we will alert the user.
+                alert("To send a photo, please use the paperclip icon in the chat! The Web App is best for Barcodes.");
+            }
+        }
+    </script>
+</body>
+</html>
