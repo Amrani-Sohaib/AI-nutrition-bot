@@ -12,7 +12,7 @@ import base64
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, Command, StateFilter
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, WebAppInfo
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -985,6 +985,7 @@ async def toggle_daily_details(callback: CallbackQuery):
 
 @dp.message(F.text == "⚙️ Set Goals")
 async def start_goals_setup(message: Message, state: FSMContext):
+    await state.clear()
     logging.info("User requested Goal Setup")
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🤖 AI Calculator (Recommended)", callback_data="goals:ai")],
@@ -1039,13 +1040,17 @@ async def process_age(message: Message, state: FSMContext):
     await message.answer("What is your <b>Gender</b>?", reply_markup=keyboard, parse_mode="HTML")
     await state.set_state(ProfileStates.waiting_for_gender)
 
-@dp.callback_query(ProfileStates.waiting_for_gender)
+@dp.callback_query(ProfileStates.waiting_for_gender, F.data.startswith("gender:"))
 async def process_gender(callback: CallbackQuery, state: FSMContext):
     gender = callback.data.split(":")[1]
     await state.update_data(gender=gender)
     await callback.message.answer("What is your <b>Weight</b> in kg? (e.g., 75)", parse_mode="HTML")
     await state.set_state(ProfileStates.waiting_for_weight)
     await callback.answer()
+
+@dp.message(ProfileStates.waiting_for_gender)
+async def gender_invalid_input(message: Message):
+    await message.answer("Please select an option from the buttons above. ⬆️")
 
 @dp.message(ProfileStates.waiting_for_weight)
 async def process_weight(message: Message, state: FSMContext):
@@ -1070,11 +1075,7 @@ async def process_height(message: Message, state: FSMContext):
             [InlineKeyboardButton(text="Very Active (6-7 days/wk)", callback_data="activity:Very Active")]
         ])
         await message.answer("What is your <b>Activity Level</b>?", reply_markup=keyboard, parse_mode="HTML")
-        await state.set_state(ProfileStates.waiting_for_activity)
-    except ValueError:
-        await message.answer("Please enter a valid number.")
-
-@dp.callback_query(ProfileStates.waiting_for_activity)
+@dp.callback_query(ProfileStates.waiting_for_activity, F.data.startswith("activity:"))
 async def process_activity(callback: CallbackQuery, state: FSMContext):
     activity = callback.data.split(":")[1]
     data = await state.get_data()
@@ -1111,6 +1112,14 @@ async def process_activity(callback: CallbackQuery, state: FSMContext):
         f"🍞 Carbs: {goals['carbs']}g\n"
         f"🥑 Fats: {goals['fats']}g\n\n"
         f"📝 <i>{goals['explanation']}</i>",
+        parse_mode="HTML"
+    )
+    await state.clear()
+    await callback.answer()
+
+@dp.message(ProfileStates.waiting_for_activity)
+async def activity_invalid_input(message: Message):
+    await message.answer("Please select an activity level from the buttons above. ⬆️")lanation']}</i>",
         parse_mode="HTML"
     )
     await state.clear()
