@@ -18,7 +18,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.db import init_db, get_db_connection, get_daily_summary, clear_daily_logs, get_daily_logs, delete_log, get_logs_by_group
-from src.services.openai_service import process_user_message, analyze_food_image
+from src.services.openai_service import process_user_message, analyze_food_image, calculate_daily_goals
 from src.services.off_service import search_product, get_product_by_barcode
 from src.services.barcode_service import decode_barcode
 from src.utils.visualization import generate_text_progress_bar
@@ -29,6 +29,14 @@ class BotStates(StatesGroup):
     waiting_for_barcode = State()
     waiting_for_food_photo = State()
     waiting_for_portion = State()
+
+class ProfileStates(StatesGroup):
+    waiting_for_age = State()
+    waiting_for_gender = State()
+    waiting_for_weight = State()
+    waiting_for_height = State()
+    waiting_for_activity = State()
+    waiting_for_manual_cals = State()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,7 +53,7 @@ init_firebase()
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🥗 Log Meal (Photo)"), KeyboardButton(text="🔍 Scan Barcode")],
-        [KeyboardButton(text="📱 Open Dashboard")],
+        [KeyboardButton(text="📱 Open Dashboard"), KeyboardButton(text="⚙️ Set Goals")],
         [KeyboardButton(text="📝 Log Text"), KeyboardButton(text="📊 Daily Journal")],
         [KeyboardButton(text="❌ Cancel / Reset")]
     ],
@@ -975,6 +983,138 @@ async def toggle_daily_details(callback: CallbackQuery):
     except Exception as e:
         logging.error(f"Error in toggle_daily_details: {e}")
         await callback.answer("An error occurred.", show_alert=True)
+
+# --- PROFILE & GOALS HANDLERS ---
+
+@dp.message(F.text == "⚙️ Set Goals")
+async def start_goals_setup(message: Message, state: FSMContext):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🤖 AI Calculator (Recommended)", callback_data="goals:ai")],
+        [InlineKeyboardButton(text="✍️ Manual Setup", callback_data="goals:manual")]
+    ])
+    await message.answer("<b>⚙️ Goal Setup</b>\n\nHow would you like to set your daily calorie and macro goals?", reply_markup=keyboard, parse_mode="HTML")
+
+@dp.callback_query(F.data == "goals:manual")
+async def manual_goals_start(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("Please enter your daily calorie goal (e.g., 2000):")
+    await state.set_state(ProfileStates.waiting_for_manual_cals)
+    await callback.answer()
+
+@dp.message(ProfileStates.waiting_for_manual_cals)
+async def manual_goals_finish(message: Message, state: FSMContext):
+    try:
+        cals = int(message.text.strip())
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET daily_calorie_goal = ? WHERE user_id = ?", (cals, message.from_user.id))
+        conn.commit()
+        conn.close()
+        
+        # Sync to Firebase
+        summary = get_daily_summary(message.from_user.id)
+        logs = get_daily_logs(message.from_user.id)
+        update_user_stats_in_firebase(message.from_user.id, summary, logs)
+        
+        await message.answer(f"✅ Daily goal set to <b>{cals} kcal</b>!", parse_mode="HTML")
+        await state.clear()
+    except ValueError:
+        await message.answer("Please enter a valid number.")
+
+@dp.callback_query(F.data == "goals:ai")
+async def ai_goals_start(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("Let's calculate your personalized goals! 🤖\n\nFirst, what is your <b>Age</b>? (e.g., 25)", parse_mode="HTML")
+    await state.set_state(ProfileStates.waiting_for_age)
+    await callback.answer()
+
+@dp.message(ProfileStates.waiting_for_age)
+async def process_age(message: Message, state: FSMContext):
+    if not message.text.isdigit():
+        await message.answer("Please enter a valid number for age.")
+        return
+    await state.update_data(age=int(message.text))
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Male", callback_data="gender:Male"), InlineKeyboardButton(text="Female", callback_data="gender:Female")]
+    ])
+    await message.answer("What is your <b>Gender</b>?", reply_markup=keyboard, parse_mode="HTML")
+    await state.set_state(ProfileStates.waiting_for_gender)
+
+@dp.callback_query(ProfileStates.waiting_for_gender)
+async def process_gender(callback: CallbackQuery, state: FSMContext):
+    gender = callback.data.split(":")[1]
+    await state.update_data(gender=gender)
+    await callback.message.answer("What is your <b>Weight</b> in kg? (e.g., 75)", parse_mode="HTML")
+    await state.set_state(ProfileStates.waiting_for_weight)
+    await callback.answer()
+
+@dp.message(ProfileStates.waiting_for_weight)
+async def process_weight(message: Message, state: FSMContext):
+    try:
+        weight = float(message.text.replace(',', '.'))
+        await state.update_data(weight=weight)
+        await message.answer("What is your <b>Height</b> in cm? (e.g., 180)", parse_mode="HTML")
+        await state.set_state(ProfileStates.waiting_for_height)
+    except ValueError:
+        await message.answer("Please enter a valid number.")
+
+@dp.message(ProfileStates.waiting_for_height)
+async def process_height(message: Message, state: FSMContext):
+    try:
+        height = float(message.text.replace(',', '.'))
+        await state.update_data(height=height)
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Sedentary (Office job)", callback_data="activity:Sedentary")],
+            [InlineKeyboardButton(text="Lightly Active (1-3 days/wk)", callback_data="activity:Lightly Active")],
+            [InlineKeyboardButton(text="Moderately Active (3-5 days/wk)", callback_data="activity:Moderately Active")],
+            [InlineKeyboardButton(text="Very Active (6-7 days/wk)", callback_data="activity:Very Active")]
+        ])
+        await message.answer("What is your <b>Activity Level</b>?", reply_markup=keyboard, parse_mode="HTML")
+        await state.set_state(ProfileStates.waiting_for_activity)
+    except ValueError:
+        await message.answer("Please enter a valid number.")
+
+@dp.callback_query(ProfileStates.waiting_for_activity)
+async def process_activity(callback: CallbackQuery, state: FSMContext):
+    activity = callback.data.split(":")[1]
+    data = await state.get_data()
+    
+    # Save profile to DB
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE users 
+        SET age = ?, gender = ?, weight = ?, height = ?, activity_level = ?
+        WHERE user_id = ?
+    ''', (data['age'], data['gender'], data['weight'], data['height'], activity, callback.from_user.id))
+    conn.commit()
+    
+    await callback.message.answer("🔄 Calculating your personalized plan with AI...")
+    
+    # Call OpenAI
+    goals = await calculate_daily_goals(data['age'], data['gender'], data['weight'], data['height'], activity)
+    
+    # Save Goal
+    cursor.execute("UPDATE users SET daily_calorie_goal = ? WHERE user_id = ?", (goals['calories'], callback.from_user.id))
+    conn.commit()
+    conn.close()
+    
+    # Sync to Firebase
+    summary = get_daily_summary(callback.from_user.id)
+    logs = get_daily_logs(callback.from_user.id)
+    update_user_stats_in_firebase(callback.from_user.id, summary, logs)
+    
+    await callback.message.answer(
+        f"✅ <b>Plan Created!</b>\n\n"
+        f"🔥 <b>Daily Calories: {goals['calories']} kcal</b>\n"
+        f"💪 Protein: {goals['protein']}g\n"
+        f"🍞 Carbs: {goals['carbs']}g\n"
+        f"🥑 Fats: {goals['fats']}g\n\n"
+        f"📝 <i>{goals['explanation']}</i>",
+        parse_mode="HTML"
+    )
+    await state.clear()
+    await callback.answer()
 
 async def main() -> None:
     # Initialize DB

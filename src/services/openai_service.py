@@ -150,3 +150,49 @@ async def process_user_message(text: str):
         print(f"Error calling OpenAI: {e}")
         return [], "Sorry, I encountered an error."
 
+async def calculate_daily_goals(age, gender, weight, height, activity):
+    """
+    Calculates daily calorie and macro goals using GPT-4o.
+    """
+    prompt = f"""
+    You are an expert Nutritionist.
+    Calculate the daily calorie needs (TDEE) and macro split for a user with:
+    - Age: {age}
+    - Gender: {gender}
+    - Weight: {weight} kg
+    - Height: {height} cm
+    - Activity Level: {activity}
+    
+    Goal: Maintain weight / General Health.
+    
+    Output JSON ONLY:
+    {{
+        "calories": 2000,
+        "protein": 150,
+        "carbs": 200,
+        "fats": 65,
+        "explanation": "Brief explanation of the calculation."
+    }}
+    """
+    
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that outputs raw JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        
+        content = response.choices[0].message.content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.endswith("```"):
+            content = content[:-3]
+            
+        return json.loads(content)
+    except Exception as e:
+        print(f"Error calculating goals: {e}")
+        return {"calories": 2000, "protein": 150, "carbs": 200, "fats": 65, "explanation": "Default values due to error."}
+

@@ -52,6 +52,7 @@ def update_user_stats_in_firebase(user_id, summary_data, logs_data):
 
         data = {
             "total_cals": summary_data['total_calories'] or 0,
+            "goal_cals": summary_data.get('daily_calorie_goal', 2000),
             "macros": {
                 "protein": summary_data['total_protein'] or 0,
                 "carbs": summary_data['total_carbs'] or 0,

@@ -474,8 +474,10 @@
 
         function updateDashboard(data) {
             // Update Calories
-            document.getElementById('total-cals').innerText = data.total_cals || 0;
-
+            const currentCals = data.total_cals || 0;
+            const goalCals = data.goal_cals || 2000;
+            document.getElementById('total-cals').innerText = `${currentCals} / ${goalCals}`;
+            
             // Update Chart
             const ctx = document.getElementById('macroChart').getContext('2d');
             const macros = data.macros || { protein: 0, carbs: 0, fats: 0 };

@@ -17,7 +17,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
-            daily_calorie_goal INTEGER DEFAULT 2000
+            daily_calorie_goal INTEGER DEFAULT 2000,
+            age INTEGER,
+            gender TEXT,
+            weight REAL,
+            height REAL,
+            activity_level TEXT
         )
     ''')
     
@@ -59,6 +64,13 @@ def init_db():
         cursor.execute("ALTER TABLE logs ADD COLUMN meal_group_id TEXT")
     except sqlite3.OperationalError:
         pass # Column likely exists
+
+    # Migration for users table
+    for col in ['age', 'gender', 'weight', 'height', 'activity_level']:
+        try:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT") # Using TEXT for simplicity/flexibility or REAL/INTEGER
+        except sqlite3.OperationalError:
+            pass
     
     conn.commit()
     conn.close()
@@ -82,6 +94,11 @@ def get_daily_summary(user_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Get Goal
+    cursor.execute("SELECT daily_calorie_goal FROM users WHERE user_id = ?", (user_id,))
+    user_row = cursor.fetchone()
+    goal = user_row['daily_calorie_goal'] if user_row else 2000
+
     cursor.execute('''
         SELECT 
             SUM(calories) as total_calories,
@@ -96,7 +113,11 @@ def get_daily_summary(user_id: int):
     
     row = cursor.fetchone()
     conn.close()
-    return row
+    
+    # Convert Row to Dict and add goal
+    result = dict(row) if row else {}
+    result['daily_calorie_goal'] = goal
+    return result
 
 def get_daily_logs(user_id: int):
     """
