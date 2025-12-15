@@ -747,6 +747,7 @@ async def web_app_data_handler(message: Message, state: FSMContext):
                     fats = item.get('fats', 0)
                     micros = item.get('micronutrients', 'N/A')
                     score = item.get('health_score', 5)
+                    meal_period = item.get('meal_period', 'Snack')
                     
                     total_cals += cals
                     total_prot += prot
@@ -755,9 +756,9 @@ async def web_app_data_handler(message: Message, state: FSMContext):
                     item_names.append(name)
                     
                     cursor.execute('''
-                        INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id))
+                        INSERT INTO logs (user_id, food_name, calories, protein, carbs, fats, micronutrients, health_score, meal_group_id, meal_period)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (message.from_user.id, name, cals, prot, carbs, fats, micros, score, group_id, meal_period))
                     
                 conn.commit()
                 conn.close()

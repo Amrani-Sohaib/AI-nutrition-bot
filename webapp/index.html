@@ -373,6 +373,19 @@
                 <button onclick="addTag('Dinner: ')" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; background: white; font-size: 13px;">🍲 Dinner</button>
                 <button onclick="addTag('Snack: ')" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; background: white; font-size: 13px;">🍎 Snack</button>
             </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                <button class="action-btn" onclick="openScanner()" style="padding: 12px; flex-direction: row; gap: 8px;">
+                    <span style="font-size: 20px;">🔍</span>
+                    <span style="font-size: 13px; font-weight: 600;">Scan Barcode</span>
+                </button>
+                <label class="action-btn" style="padding: 12px; flex-direction: row; gap: 8px;">
+                    <span style="font-size: 20px;">📸</span>
+                    <span style="font-size: 13px; font-weight: 600;">Snap Photo</span>
+                    <input type="file" accept="image/*" capture="environment" style="display: none;" onchange="handlePhoto(this)">
+                </label>
+            </div>
+
             <textarea id="text-log-input" rows="4" style="width: 100%; border: 1px solid #eee; border-radius: 12px; padding: 12px; font-family: inherit; font-size: 16px; resize: none; box-sizing: border-box;" placeholder="e.g. 2 eggs, avocado toast and coffee"></textarea>
             <button onclick="sendTextLog()" style="width: 100%; background: var(--accent); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: 600; font-size: 16px; margin-top: 12px;">Log Meal</button>
         </div>
