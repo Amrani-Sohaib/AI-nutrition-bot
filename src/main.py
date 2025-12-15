@@ -694,7 +694,7 @@ async def log_food_handler(message: Message, state: FSMContext) -> None:
         logging.error(f"Error processing message: {e}")
         await message.answer("An error occurred while processing your request.")
 
-@dp.message(F.web_app_data)
+@dp.message(F.content_type == "web_app_data")
 async def web_app_data_handler(message: Message, state: FSMContext):
     """
     Handles data sent from the Web App (Barcode or Text Log)
@@ -988,6 +988,7 @@ async def toggle_daily_details(callback: CallbackQuery):
 
 @dp.message(F.text == "⚙️ Set Goals")
 async def start_goals_setup(message: Message, state: FSMContext):
+    logging.info("User requested Goal Setup")
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🤖 AI Calculator (Recommended)", callback_data="goals:ai")],
         [InlineKeyboardButton(text="✍️ Manual Setup", callback_data="goals:manual")]
@@ -996,6 +997,7 @@ async def start_goals_setup(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == "goals:manual")
 async def manual_goals_start(callback: CallbackQuery, state: FSMContext):
+    logging.info("User chose Manual Goals")
     await callback.message.answer("Please enter your daily calorie goal (e.g., 2000):")
     await state.set_state(ProfileStates.waiting_for_manual_cals)
     await callback.answer()
@@ -1022,6 +1024,7 @@ async def manual_goals_finish(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == "goals:ai")
 async def ai_goals_start(callback: CallbackQuery, state: FSMContext):
+    logging.info("User chose AI Goals")
     await callback.message.answer("Let's calculate your personalized goals! 🤖\n\nFirst, what is your <b>Age</b>? (e.g., 25)", parse_mode="HTML")
     await state.set_state(ProfileStates.waiting_for_age)
     await callback.answer()
