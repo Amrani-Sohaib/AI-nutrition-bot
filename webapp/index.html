@@ -444,9 +444,13 @@
 
         let macroChart = null;
 
-        // Get User ID from URL
+        // Get User ID from URL or Telegram Data
         const urlParams = new URLSearchParams(window.location.search);
-        const userId = urlParams.get('userId');
+        let userId = urlParams.get('userId');
+
+        if (!userId && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            userId = tg.initDataUnsafe.user.id;
+        }
 
         if (!userId) {
             document.getElementById('loading').innerHTML = "⚠️ Error: No User ID found.";
