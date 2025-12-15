@@ -686,11 +686,12 @@ async def log_food_handler(message: Message, state: FSMContext) -> None:
         logging.error(f"Error processing message: {e}")
         await message.answer("An error occurred while processing your request.")
 
-@dp.message(F.content_type == types.ContentType.WEB_APP_DATA)
+@dp.message(F.web_app_data)
 async def web_app_data_handler(message: Message, state: FSMContext):
     """
     Handles data sent from the Web App (Barcode or Text Log)
     """
+    logging.info(f"Received Web App Data: {message.web_app_data.data}")
     try:
         data = json.loads(message.web_app_data.data)
         
