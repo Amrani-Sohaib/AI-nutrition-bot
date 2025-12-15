@@ -193,7 +193,7 @@ async def menu_daily_journal(message: Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Show Daily Details", callback_data="toggle_daily_details:show")],
         [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")],
-        [InlineKeyboardButton(text="🚀 Open App Dashboard", callback_data="open_dashboard_btn")]
+        [InlineKeyboardButton(text="🚀 Open App Dashboard", web_app=WebAppInfo(url=f"https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/?userId={message.from_user.id}"))]
     ])
     
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
@@ -295,7 +295,8 @@ async def delete_log_done(callback: CallbackQuery):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Show Daily Details", callback_data="toggle_daily_details:show")],
-        [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")]
+        [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")],
+        [InlineKeyboardButton(text="🚀 Open App Dashboard", web_app=WebAppInfo(url=f"https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/?userId={callback.from_user.id}"))]
     ])
     
     await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
@@ -963,7 +964,8 @@ async def toggle_daily_details(callback: CallbackQuery):
             new_text = f"{synthesis_text}\n\n{full_details}"
             new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔼 Hide Details", callback_data="toggle_daily_details:hide")],
-                [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")]
+                [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")],
+                [InlineKeyboardButton(text="🚀 Open App Dashboard", web_app=WebAppInfo(url=f"https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/?userId={callback.from_user.id}"))]
             ])
             await callback.message.edit_text(new_text, reply_markup=new_keyboard, parse_mode="HTML")
             
@@ -972,7 +974,8 @@ async def toggle_daily_details(callback: CallbackQuery):
             new_text = synthesis_text
             new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📜 Show Daily Details", callback_data="toggle_daily_details:show")],
-                [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")]
+                [InlineKeyboardButton(text="🗑️ Manage / Delete Items", callback_data="manage_logs")],
+                [InlineKeyboardButton(text="🚀 Open App Dashboard", web_app=WebAppInfo(url=f"https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/?userId={callback.from_user.id}"))]
             ])
             await callback.message.edit_text(new_text, reply_markup=new_keyboard, parse_mode="HTML")
         
