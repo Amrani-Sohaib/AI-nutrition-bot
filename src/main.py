@@ -1075,6 +1075,10 @@ async def process_height(message: Message, state: FSMContext):
             [InlineKeyboardButton(text="Very Active (6-7 days/wk)", callback_data="activity:Very Active")]
         ])
         await message.answer("What is your <b>Activity Level</b>?", reply_markup=keyboard, parse_mode="HTML")
+        await state.set_state(ProfileStates.waiting_for_activity)
+    except ValueError:
+        await message.answer("Please enter a valid number.")
+
 @dp.callback_query(ProfileStates.waiting_for_activity, F.data.startswith("activity:"))
 async def process_activity(callback: CallbackQuery, state: FSMContext):
     activity = callback.data.split(":")[1]
@@ -1119,11 +1123,7 @@ async def process_activity(callback: CallbackQuery, state: FSMContext):
 
 @dp.message(ProfileStates.waiting_for_activity)
 async def activity_invalid_input(message: Message):
-    await message.answer("Please select an activity level from the buttons above. ⬆️")lanation']}</i>",
-        parse_mode="HTML"
-    )
-    await state.clear()
-    await callback.answer()
+    await message.answer("Please select an activity level from the buttons above. ⬆️")
 
 async def main() -> None:
     # Initialize DB
