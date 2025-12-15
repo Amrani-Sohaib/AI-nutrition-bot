@@ -18,7 +18,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.db import init_db, get_db_connection, get_daily_summary, clear_daily_logs, get_daily_logs, delete_log, get_logs_by_group
-from src.services.openai_service import process_user_message, analyze_food_image, calculate_daily_goals
+from src.services.openai_service import process_user_message, analyze_food_image
+from src.services.calculator_service import calculate_daily_goals_deterministic
 from src.services.off_service import search_product, get_product_by_barcode
 from src.services.barcode_service import decode_barcode
 from src.utils.visualization import generate_text_progress_bar
@@ -992,7 +993,7 @@ async def start_goals_setup(message: Message, state: FSMContext):
     await state.clear()
     logging.info("User requested Goal Setup")
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🤖 AI Calculator (Recommended)", callback_data="goals:ai")],
+        [InlineKeyboardButton(text="🤖 Auto-Calculate (Recommended)", callback_data="goals:ai")],
         [InlineKeyboardButton(text="✍️ Manual Setup", callback_data="goals:manual")]
     ])
     await message.answer("<b>⚙️ Goal Setup</b>\n\nHow would you like to set your daily calorie and macro goals?", reply_markup=keyboard, parse_mode="HTML")
@@ -1098,10 +1099,10 @@ async def process_activity(callback: CallbackQuery, state: FSMContext):
     ''', (data['age'], data['gender'], data['weight'], data['height'], activity, callback.from_user.id))
     conn.commit()
     
-    await callback.message.answer("🔄 Calculating your personalized plan with AI...")
+    await callback.message.answer("🔄 Calculating your personalized plan...")
     
-    # Call OpenAI
-    goals = await calculate_daily_goals(data['age'], data['gender'], data['weight'], data['height'], activity)
+    # Call Deterministic Calculator
+    goals = calculate_daily_goals_deterministic(data['age'], data['gender'], data['weight'], data['height'], activity)
     
     # Save Goal
     cursor.execute("UPDATE users SET daily_calorie_goal = ? WHERE user_id = ?", (goals['calories'], callback.from_user.id))
