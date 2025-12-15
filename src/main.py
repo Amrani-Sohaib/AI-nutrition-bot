@@ -613,7 +613,16 @@ async def process_portion_input(message: Message, state: FSMContext):
     # Reset state
     await state.set_state(None)
 
-@dp.message(F.text)
+# Catch-all text logger, but ignore known menu buttons to avoid swallowing goal setup, etc.
+@dp.message(F.text & ~F.text.in_([
+    "🥗 Log Meal (Photo)",
+    "🔍 Scan Barcode",
+    "📱 Open Dashboard",
+    "⚙️ Set Goals",
+    "📝 Log Text",
+    "📊 Daily Journal",
+    "❌ Cancel / Reset"
+]))
 async def log_food_handler(message: Message, state: FSMContext) -> None:
     """
     Handler for text messages to log food or chat
