@@ -50,16 +50,17 @@ init_firebase()
 
 # Main Menu Keyboard
 # NOTE: Replace 'https://your-webapp-url.com' with your actual hosted URL
-main_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🥗 Log Meal (Photo)"), KeyboardButton(text="🔍 Scan Barcode")],
-        [KeyboardButton(text="📱 Open Dashboard", web_app=WebAppInfo(url="https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/")), KeyboardButton(text="⚙️ Set Goals")],
-        [KeyboardButton(text="📝 Log Text"), KeyboardButton(text="📊 Daily Journal")],
-        [KeyboardButton(text="❌ Cancel / Reset")]
-    ],
-    resize_keyboard=True,
-    input_field_placeholder="Select an option..."
-)
+def get_main_menu(user_id):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🥗 Log Meal (Photo)"), KeyboardButton(text="🔍 Scan Barcode")],
+            [KeyboardButton(text="📱 Open Dashboard", web_app=WebAppInfo(url=f"https://amrani-sohaib.github.io/AI-nutrition-bot/webapp/?userId={user_id}")), KeyboardButton(text="⚙️ Set Goals")],
+            [KeyboardButton(text="📝 Log Text"), KeyboardButton(text="📊 Daily Journal")],
+            [KeyboardButton(text="❌ Cancel / Reset")]
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Select an option..."
+    )
 
 @dp.message(CommandStart())
 async def command_start_handler(message: Message, state: FSMContext) -> None:
@@ -95,7 +96,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         f"👇 <b>Choose an action below:</b>"
     )
     
-    await message.answer(welcome_text, reply_markup=main_menu, parse_mode="HTML")
+    await message.answer(welcome_text, reply_markup=get_main_menu(user_id), parse_mode="HTML")
 
 @dp.message(Command("dashboard"))
 async def open_dashboard(message: Message):
@@ -137,7 +138,7 @@ async def menu_cancel(message: Message, state: FSMContext):
         f"👇 <b>What would you like to do next?</b>"
     )
     
-    await message.answer(welcome_text, reply_markup=main_menu, parse_mode="HTML")
+    await message.answer(welcome_text, reply_markup=get_main_menu(message.from_user.id), parse_mode="HTML")
 
 @dp.message(F.text == "📝 Log Text")
 async def menu_log_text(message: Message, state: FSMContext):
