@@ -59,7 +59,7 @@ async def analyze_food_image(image_path: str, caption: str = ""):
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-2024-08-06",
             messages=[
                 {
                     "role": "user",
@@ -129,7 +129,7 @@ async def process_user_message(text: str):
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-2024-08-06",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that outputs raw JSON."},
                 {"role": "user", "content": prompt}
@@ -177,7 +177,7 @@ async def calculate_daily_goals(age, gender, weight, height, activity):
     
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-2024-08-06",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that outputs raw JSON."},
                 {"role": "user", "content": prompt}
